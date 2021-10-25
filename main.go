@@ -61,12 +61,19 @@ const (
 	// within WSL user space. The prefix of these identifiers is constructed
 	// dynamically based on the volume specified by a Windows absolute path.
 	NixPathEnvSuffix = "_VOLUME_PATH" // e.g., C_VOLUME_PATH="/mnt/c"
-	WslRootfsEnvVar  = "WSL_ROOTFS_PATH"
+	// WslRootfsEnvVar holds the Windows-formatted absolute path to the
+	// active WSL distribution's rootfs directory (content is read-only).
+	// For files that exist solely in the WSL virtual rootfs (they are not
+	// stored physically on any host file system), the following environment
+	// variable is used as the path prefix.
+	WslRootfsEnvVar = "WSL_ROOTFS_PATH"
+	UncPathEnvVar   = "WSL_UNC_PATH"
 )
 
 const (
 	toWinFlagDesc = "Convert Unix to Windows file path(s)"
 	toNixFlagDesc = "Convert Windows to Unix file path(s)"
+	existFlagDesc = "Do not translate paths found only in WSL rootfs"
 )
 
 func Usage() {
@@ -75,8 +82,12 @@ func Usage() {
 		"\t" + os.Args[0] + " [-w|-x] [PATH ...]",
 		"",
 		"Options:",
-		"\t-w       " + toWinFlagDesc,
-		"\t-x       " + toNixFlagDesc,
+		"\t-w    " + toWinFlagDesc,
+		"\t-x    " + toNixFlagDesc,
+		"",
+		"\tIf no option specifying the target file path(s) format is given,",
+		"\tthen the format is automatically determined by analyzing each given",
+		"\tpath individually and using the opposite format(s), respectively.",
 		"",
 		"Environment:",
 		"\tTranslating absolute file paths from one filesystem to the other",
@@ -88,13 +99,11 @@ func Usage() {
 		"\tFor example, converting \"C:\\Windows\" will look for an environment",
 		"\tvariable such as: C" + NixPathEnvSuffix + "=\"/mnt/c\".",
 		"",
-		"\tIf a UNC path is provided, the environment variable identifier",
-		"\tfollows a similar convention, all uppercase, and includes both the",
-		"\thost and share componenets separated by two underscores, with any",
-		"\tperiod replaced by a lower-case 'p', and all other remaining",
-		"\tnon-alphanumeric characters replaced with a single underscore.",
-		"\tFor example, \"\\\\dev_okc.net\\aps\\share\" would look for a",
-		"\tvariable named DEV_OKCpNET__APS" + NixPathEnvSuffix + ".",
+		"\tIf a UNC path is provided, a special environment variable named",
+		"\tWSL_UNC_PATH is read containing a list of all UNC path to mount",
+		"\tpoint mappings, with the following semicolon-delimited format:",
+		"",
+		"\t    WSL_UNC_PATH='\\h1\\v1\\rp1=/lp1;\\h2\\v2\\rp2=/lp2'",
 		"",
 		"\tThese same rules are applied in reverse when converting Unix file",
 		"\tpaths to Windows as well. The user's environment is inspected for",
@@ -107,14 +116,17 @@ func Usage() {
 		"\tthe virtual Linux file system. In this case, a special environment",
 		"\tvariable named " + WslRootfsEnvVar + " is consulted to resolve the Windows",
 		"\tabsolute file path by appending the absolute Unix file path to the",
-		"\tvalue of this environment variable.",
+		"\tvalue of this environment variable. If the command-line flag -e is",
+		"\tprovided, then this fallback is not performed, and any paths given",
+		"\tthat do not have a corresponding mapping in the environment will",
+		"\treturn an error.",
 		"",
 		"WARNING:",
 		"\tWSL does not currently support writing to virtual Linux file",
 		"\tsystems from a Windows context. Therefore, any paths resolved",
 		"\tusing the path referenced in the " + WslRootfsEnvVar + " environment",
 		"\tvariable should only be used for read-only operations. Writing",
-		"\tto these paths could potentially corrupt a WSL file system!.",
+		"\tto these paths could potentially corrupt a WSL file system!",
 		"",
 	} {
 		fmt.Println("\t" + s)
@@ -124,10 +136,11 @@ func Usage() {
 func main() {
 
 	var (
-		toWinFlag, toNixFlag bool
+		toWinFlag, toNixFlag, existFlag bool
 	)
 	flag.BoolVar(&toWinFlag, "w", false, toWinFlagDesc)
 	flag.BoolVar(&toNixFlag, "x", false, toNixFlagDesc)
+	flag.BoolVar(&existFlag, "e", false, existFlagDesc)
 
 	flag.Usage = Usage
 	flag.Parse()
@@ -148,17 +161,17 @@ func main() {
 		// use command line flag as target format if provided
 		switch {
 		case toWinFlag:
-			form, _, err = Unix.Format(Windows, text, 0)
+			form, _, err = Unix.Format(Windows, text, existFlag, 0)
 		case toNixFlag:
-			form, _, err = Windows.Format(Unix, text, 0)
+			form, _, err = Windows.Format(Unix, text, existFlag, 0)
 		default:
 			// otherwise, no command line flag, try to detect the
 			// given format and use the opposite as target format
 			switch Identify(text) {
 			case Windows:
-				form, _, err = Windows.Format(Unix, text, 0)
+				form, _, err = Windows.Format(Unix, text, existFlag, 0)
 			case Unix:
-				form, _, err = Unix.Format(Windows, text, 0)
+				form, _, err = Unix.Format(Windows, text, existFlag, 0)
 			case Any:
 				form = Any.Clean(text)
 			}
@@ -187,8 +200,12 @@ func InputReader(args ...string) io.Reader {
 
 // Identify automatically detects and returns the file path Format of a given
 // string, by scanning for the first directory path separator.
-// If no separator exists, such as a simple file name, then the path is valid
-// for both systems, and the special Format value Any is returned.
+// If no separator exists, such as a simple file name, then the path is
+// checked if it contains a Windows drive letter prefix (a volume-anchored
+// relative path, e.g., "D:foo.dat" refers to "foo.dat" in the current
+// working path on the "D:" volume, regardless of the current volume).
+// Otherwise, the path is valid for both systems, and the special Format
+// value Any is returned.
 func Identify(s string) Format {
 	for _, c := range s {
 		if c == '\\' {
@@ -196,6 +213,13 @@ func Identify(s string) Format {
 		}
 		if c == '/' {
 			return Unix
+		}
+	}
+	// No directory separator, check if it contains a drive letter prefix
+	if len(s) > 1 {
+		if d := s[0]; (s[1] == ':') &&
+			(('a' <= d && d <= 'z') || ('A' <= d && d <= 'Z')) {
+			return Windows
 		}
 	}
 	return Any
@@ -215,8 +239,8 @@ func (f Format) SplitVolume(s string) (volume, path string) {
 	if len(s) < 2 {
 		return "", s
 	}
-	d := s[0]
-	if (s[1] == ':') && (('a' <= d && d <= 'z') || ('A' <= d && d <= 'Z')) {
+	if d := s[0]; (s[1] == ':') &&
+		(('a' <= d && d <= 'z') || ('A' <= d && d <= 'Z')) {
 		return s[:2], s[2:]
 	}
 
@@ -225,19 +249,19 @@ func (f Format) SplitVolume(s string) (volume, path string) {
 		return "", s
 	}
 	// verify we have leading slashes
-	if f.issep(rune(s[0])) && f.issep(rune(s[1])) && !f.issep(rune(s[2])) && (s[2] != '.') {
+	if s[:2] == `\\` && s[2] != '\\' && s[2] != '.' {
 		for n := 3; n < len(s)-1; n++ {
 			// walk over server name until we reach volume separator
-			if f.issep(rune(s[n])) {
+			if s[n] == '\\' {
 				n++
-				if !f.issep(rune(s[n])) {
+				if s[n] != '\\' {
 					if s[n] == '.' {
 						break
 					}
-					// we are in volume name, take remaining
-					// chars up to EOS or next separator
+					// we are in volume name,
+					//   take remaining chars up to EOS or next separator
 					for ; n < len(s); n++ {
-						if f.issep(rune(s[n])) {
+						if s[n] == '\\' {
 							break
 						}
 					}
@@ -372,8 +396,8 @@ func (f Format) Clean(s string) string {
 // environment variables are used to determine relative paths or mount points.
 //
 // The bool return paramter is true if and only if the returned path is
-// a Windows path into the WSL virtual rootfs.
-func (f Format) Format(t Format, s string, z uint) (string, bool, error) {
+// a Windows formatted path into the WSL virtual rootfs (i.e., read-only).
+func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error) {
 
 	s = f.Clean(s)
 	wsl := false
@@ -400,32 +424,23 @@ func (f Format) Format(t Format, s string, z uint) (string, bool, error) {
 					}
 				} else if len(v) >= 5 {
 					v2 := v[2]
-					if f.issep(rune(v0)) && f.issep(rune(v1)) && !f.issep(rune(v2)) && (v2 != '.') {
-						// convert UNC volume name to environment variable
-						b := strings.Builder{}
-						h := false
-						for _, c := range strings.ToUpper(v)[2:] { // skip leading "\\"
-							if !(('A' <= c && c <= 'Z') || ('0' <= c && c <= '9')) {
-								if f.issep(c) && !h {
-									// replace host\share separator with "__"
-									b.WriteRune('_')
-									h = true
-								}
-								if c == '.' {
-									// any periods with lower-case 'p'
-									c = 'p'
-								} else {
-									// anything other than 'A'..'Z','.' with '_'
-									c = '_'
+					if v[:2] == `\\` && v2 != '\\' && v2 != '.' {
+						if up, ok := os.LookupEnv(UncPathEnvVar); ok {
+							ok = false
+							for _, vm := range strings.Split(up, `;`) {
+								if m := strings.SplitN(vm, `=`, 2); len(m) == 2 {
+									if strings.ToUpper(m[0]) == strings.ToUpper(v) {
+										s = m[1] + p
+										ok = true
+										break
+									}
 								}
 							}
-							b.WriteRune(c)
-						}
-						e := b.String() + NixPathEnvSuffix
-						if up, ok := os.LookupEnv(e); ok {
-							s = up + p
+							if !ok {
+								return "", false, fmt.Errorf("UNC volume %q not found in environment variable: %s=%q", v, UncPathEnvVar, up)
+							}
 						} else {
-							return "", false, fmt.Errorf("environment variable not set: %s", e)
+							return "", false, fmt.Errorf("environment variable not set: %s", UncPathEnvVar)
 						}
 					}
 				}
@@ -439,57 +454,57 @@ func (f Format) Format(t Format, s string, z uint) (string, bool, error) {
 			if len(s) > 0 {
 				if s[0] == '/' {
 					// absolute file path
-					e, err := filepath.EvalSymlinks(s)
-					if err != nil {
-						return "", false, err
-					}
-					s = e
+					//e, err := filepath.EvalSymlinks(s)
+					//if err != nil {
+					//	return "", false, err
+					//}
+					s = f.abspath(s)
 					var rk, rv string
-					for _, e := range os.Environ() {
-						n := strings.IndexRune(e, '=')
-						if (-1 != n) && (len(e) > n+1) {
-							k, v := e[:n], f.Clean(e[n+1:])
-							if strings.HasSuffix(k, NixPathEnvSuffix) &&
-								strings.HasPrefix(s, v) && (len(v) > len(rv)) {
-								rk, rv = k, v
+					unc := false
+					if up, ok := os.LookupEnv(UncPathEnvVar); ok {
+						for _, vm := range strings.Split(up, `;`) {
+							if m := strings.SplitN(vm, `=`, 2); len(m) == 2 {
+								if strings.HasPrefix(s, m[1]) && len(m[1]) > len(rv) {
+									rk, rv = m[0], m[1]
+									unc = true
+								}
 							}
 						}
 					}
-					if len(rk) > 0 {
-						var h string
-						hn := strings.Index(rk, "__")
-						if -1 == hn {
-							// drive letter
-							h = string(rk[0]) + ":"
-						} else {
-							// UNC path
-							h = fmt.Sprintf("%c%c%s%c%s",
-								t.sep(), t.sep(),
-								rk[:hn],
-								t.sep(),
-								strings.TrimSuffix(rk[hn+2:], NixPathEnvSuffix),
-							)
-							h = strings.ReplaceAll(h, "p", ".")
-						}
-						s = strings.Replace(s, rv, h, 1)
+					if unc {
+						s = strings.Replace(s, rv, rk, 1)
 					} else {
-						if up, ok := os.LookupEnv(WslRootfsEnvVar); ok {
-							s = fmt.Sprintf("%s%c%s", up, t.sep(), s)
-							wsl = true
+						for _, e := range os.Environ() {
+							n := strings.IndexRune(e, '=')
+							if (-1 != n) && (len(e) > n+1) {
+								k, v := e[:n], f.Clean(e[n+1:])
+								if strings.HasSuffix(k, NixPathEnvSuffix) &&
+									strings.HasPrefix(s, v) && (len(v) > len(rv)) {
+									rk, rv = k, v
+								}
+							}
+						}
+						if len(rk) > 0 {
+							s = strings.Replace(s, rv, string(rk[0])+":", 1)
 						} else {
-							return "", false, fmt.Errorf("path substring not found in environment: %s", s)
+							if up, ok := os.LookupEnv(WslRootfsEnvVar); x && ok {
+								s = fmt.Sprintf("%s%c%s", up, t.sep(), s)
+								wsl = true
+							} else {
+								return "", false, fmt.Errorf("path substring not found in environment: %s", s)
+							}
 						}
 					}
 				} else {
 					// relative file path
-					a, err := filepath.Abs(s)
-					if err != nil {
-						return "", false, err
-					}
+					//a, err := filepath.Abs(s)
+					//if err != nil {
+					//	return "", false, err
+					//}
 					// if we cannot resolve the absolute path to a Windows volume, then
 					// the relative path will never make sense in a Windows context.
 					// Instead, construct an absolute path to the WSL rootfs path.
-					p, w, err := f.Format(t, a, z+1)
+					p, w, err := f.Format(t, f.abspath(s), x, z+1)
 					if err != nil {
 						return "", false, err
 					}
@@ -512,6 +527,45 @@ func (f Format) Format(t Format, s string, z uint) (string, bool, error) {
 	}
 
 	return s, wsl, nil
+}
+
+func (f Format) abspath(s string) string {
+	var act, rel string
+	for _, p := range strings.Split(s, string(f.sep())) {
+		if act == "" && rel == "" && p == "" {
+			p = string(f.sep())
+		} else {
+			if rel != "" {
+				if rel != string(f.sep()) {
+					rel += string(f.sep())
+				}
+				rel += p
+				continue
+			}
+		}
+		t := act
+		if t != "" && t != string(f.sep()) {
+			t += string(f.sep())
+		}
+		t += p
+		es, ee := filepath.EvalSymlinks(t)
+		as, ae := filepath.Abs(es)
+		if ee == nil && ae == nil {
+			act = as
+		} else {
+			rel = p
+		}
+	}
+	if act != "" {
+		if rel != "" {
+			return act + string(f.sep()) + rel
+		}
+		return act
+	}
+	if rel != "" {
+		return rel
+	}
+	return ""
 }
 
 // issep returns true if and only if the given rune is equal to the receiver
