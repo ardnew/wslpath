@@ -487,7 +487,7 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 						if len(rk) > 0 {
 							s = strings.Replace(s, rv, string(rk[0])+":", 1)
 						} else {
-							if up, ok := os.LookupEnv(WslRootfsEnvVar); x && ok {
+							if up, ok := os.LookupEnv(WslRootfsEnvVar); !x && ok {
 								s = fmt.Sprintf("%s%c%s", up, t.sep(), s)
 								wsl = true
 							} else {
