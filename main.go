@@ -79,11 +79,12 @@ const (
 func Usage() {
 	for _, s := range []string{
 		"Usage:",
-		"\t" + os.Args[0] + " [-w|-x] [PATH ...]",
+		"\t" + os.Args[0] + " [-w|-x] [-e] [PATH ...]",
 		"",
 		"Options:",
 		"\t-w    " + toWinFlagDesc,
 		"\t-x    " + toNixFlagDesc,
+		"\t-e    " + existFlagDesc,
 		"",
 		"\tIf no option specifying the target file path(s) format is given,",
 		"\tthen the format is automatically determined by analyzing each given",
@@ -150,6 +151,8 @@ func main() {
 		os.Exit(100)
 	}
 
+	exitCode := 0
+
 	// read from command line args if provided, otherwise STDIN
 	s := bufio.NewScanner(InputReader(flag.Args()...))
 	for s.Scan() {
@@ -178,6 +181,7 @@ func main() {
 		}
 		if nil != err {
 			fmt.Fprintln(os.Stderr, "error: Format():", err)
+			exitCode = 1
 			continue
 		}
 		fmt.Println(form)
@@ -185,8 +189,10 @@ func main() {
 
 	if err := s.Err(); nil != err {
 		fmt.Fprintln(os.Stderr, "error: Scan():", err)
-		os.Exit(200)
+		os.Exit(127)
 	}
+
+	os.Exit(exitCode)
 }
 
 // InputReader returns an io.Reader that reads all given arguments if provided,
