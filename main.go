@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const version = "0.1.1"
+
 // Format represents an enumeration of possible file path formats.
 type Format int
 
@@ -74,10 +76,13 @@ const (
 	toWinFlagDesc = "Convert Unix to Windows file path(s)"
 	toNixFlagDesc = "Convert Windows to Unix file path(s)"
 	existFlagDesc = "Do not translate paths found only in WSL rootfs"
+	svNumFlagDesc = "Print version number and exit"
 )
 
 func Usage() {
 	for _, s := range []string{
+		filepath.Base(os.Args[0]) + " version " + version,
+		"",
 		"Usage:",
 		"\t" + os.Args[0] + " [-w|-x] [-e] [PATH ...]",
 		"",
@@ -85,6 +90,7 @@ func Usage() {
 		"\t-w    " + toWinFlagDesc,
 		"\t-x    " + toNixFlagDesc,
 		"\t-e    " + existFlagDesc,
+		"\t-v    " + svNumFlagDesc,
 		"",
 		"\tIf no option specifying the target file path(s) format is given,",
 		"\tthen the format is automatically determined by analyzing each given",
@@ -137,14 +143,19 @@ func Usage() {
 func main() {
 
 	var (
-		toWinFlag, toNixFlag, existFlag bool
+		toWinFlag, toNixFlag, existFlag, svNumFlag bool
 	)
 	flag.BoolVar(&toWinFlag, "w", false, toWinFlagDesc)
 	flag.BoolVar(&toNixFlag, "x", false, toNixFlagDesc)
 	flag.BoolVar(&existFlag, "e", false, existFlagDesc)
+	flag.BoolVar(&svNumFlag, "v", false, svNumFlagDesc)
 
 	flag.Usage = Usage
 	flag.Parse()
+
+	if svNumFlag {
+		fmt.Println(filepath.Base(os.Args[0]), "version", version)
+	}
 
 	if toWinFlag && toNixFlag {
 		fmt.Fprintln(os.Stderr, "error: invalid arguments: -w and -x are mutually exclusive")
