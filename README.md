@@ -155,13 +155,50 @@ WARNING:
 
 ## Installation
 
-### Current Go version 1.16 and later:
+### Install pre-compiled release packages
+
+Download latest release package for your system[^1], extract contents, and copy the `wslpath` executable somewhere in your `$PATH`.
+
+[^1]: Use one of the Linux release packages if you only intend to use `wslpath` from a WSL environment.
+
+|`GOOS`   |`GOARCH`|.zip|.tar.gz|.tar.bz2|
+|:-------:|:------:|:--:|:-----:|:------:|
+|`linux`  |`386`   ||||
+|`linux`  |`amd64` ||||
+|`linux`  |`arm`   ||||
+|`linux`  |`arm64` ||||
+|`windows`|`386`   ||||
+|`windows`|`amd64` ||||
+|`windows`|`arm`   ||||
+|`windows`|`arm64` ||||
+|`freebsd`|`386`   ||||
+|`freebsd`|`amd64` ||||
+|`freebsd`|`arm`   ||||
+|`freebsd`|`arm64` ||||
+|`darwin` |`amd64` ||||
+|`darwin` |`arm64` ||||
+
+### Compile from source code
+
+```sh
+# Clone the repository
+git clone https://github.com/ardnew/wslpath
+cd wslpath
+# Compile executable
+go build -v .
+# Install somewhere in your $PATH
+sudo cp wslpath /usr/local/bin
+```
+
+### Build and install using only Go toolchain
+
+#### Current Go version 1.16 and later:
 
 ```sh
 go install -v github.com/ardnew/wslpath@latest
 ```
 
-##### Legacy Go version 1.15 and earlier:
+###### Legacy Go version 1.15 and earlier:
 
 ```sh
 GO111MODULE=off go get -v github.com/ardnew/wslpath
