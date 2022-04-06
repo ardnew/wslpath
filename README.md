@@ -163,20 +163,20 @@ Download latest release package for your system[^1], extract contents, and copy 
 
 |`GOOS`   |`GOARCH`|.zip|.tar.gz|.tar.bz2|
 |:-------:|:------:|:--:|:-----:|:------:|
-|`linux`  |`386`   ||||
-|`linux`  |`amd64` ||||
-|`linux`  |`arm`   ||||
-|`linux`  |`arm64` ||||
-|`windows`|`386`   ||||
-|`windows`|`amd64` ||||
-|`windows`|`arm`   ||||
-|`windows`|`arm64` ||||
-|`freebsd`|`386`   ||||
-|`freebsd`|`amd64` ||||
-|`freebsd`|`arm`   ||||
-|`freebsd`|`arm64` ||||
-|`darwin` |`amd64` ||||
-|`darwin` |`arm64` ||||
+|`linux`  |`386`   |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-386.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-386.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-386.tar.bz2)|
+|`linux`  |`amd64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-amd64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-amd64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-amd64.tar.bz2)|
+|`linux`  |`arm`   |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-arm.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-arm.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-arm.tar.bz2)|
+|`linux`  |`arm64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-arm64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-arm64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.linux-arm64.tar.bz2)|
+|`freebsd`|`386`   |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-386.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-386.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-386.tar.bz2)|
+|`freebsd`|`amd64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-amd64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-amd64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-amd64.tar.bz2)|
+|`freebsd`|`arm`   |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-arm.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-arm.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-arm.tar.bz2)|
+|`freebsd`|`arm64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-arm64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-arm64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.freebsd-arm64.tar.bz2)|
+|`windows`|`386`   |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-386.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-386.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-386.tar.bz2)|
+|`windows`|`amd64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-amd64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-amd64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-amd64.tar.bz2)|
+|`windows`|`arm`   |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-arm.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-arm.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-arm.tar.bz2)|
+|`windows`|`arm64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-arm64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-arm64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.windows-arm64.tar.bz2)|
+|`darwin` |`amd64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.darwin-amd64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.darwin-amd64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.darwin-amd64.tar.bz2)|
+|`darwin` |`arm64` |[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.darwin-arm64.zip)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.darwin-arm64.tar.gz)|[:floppy_disk:](https://github.com/ardnew/wslpath/releases/0.1.1/wslpath0.1.1.darwin-arm64.tar.bz2)|
 
 ### Compile from source code
 
