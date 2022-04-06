@@ -4,7 +4,7 @@
 [repurl]:https://goreportcard.com/report/github.com/ardnew/wslpath
 
 # wslpath
-#### wslpath
+#### Convert between Windows and Linux file paths in WSL
 
 [![GoDoc][docimg]][docurl] [![Go Report Card][repimg]][repurl]
 
