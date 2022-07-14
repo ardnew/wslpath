@@ -505,6 +505,13 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 							s = strings.Replace(s, rv, string(rk[0])+":", 1)
 						} else {
 							if up, ok := os.LookupEnv(WslRootfsEnvVar); !x && ok {
+								// Remove trailing line delimiters in case of misconfiguration
+								// caused by subtle interop (e.g., calling reg.exe from WSL will
+								// leave a hard-to-detect carriage return \x0D in its output).
+								//
+								// It should be very unlikely that someone intentionally wanted
+								// a newline or carriage return at the very end of a file name.
+								up = strings.TrimRight(up, "\r\n")
 								s = fmt.Sprintf("%s%c%s", up, t.sep(), s)
 								wsl = true
 							} else {

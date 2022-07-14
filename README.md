@@ -18,7 +18,7 @@ export D_VOLUME_PATH='/mnt/backup'
 # define any mounted network shares with UNC paths
 export WSL_UNC_PATH='\\work\s1\path=/mnt/work/s1;\\work\s2\path=/mnt/work/s2'  
 
-# define you rootfs path for any files that reside only in WSL (see following section)
+# define your rootfs path for any files that reside only in WSL (see following section)
 export WSL_ROOTFS_PATH=$( wslrootfs )
 ```
 
