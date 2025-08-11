@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const version = "0.1.1"
+const version = "0.2.0"
 
 // Format represents an enumeration of possible file path formats.
 type Format int
@@ -73,6 +73,7 @@ const (
 )
 
 const (
+	toAbsFlagDesc = "Output converted file paths as absolute file path"
 	toWinFlagDesc = "Convert Unix to Windows file path(s)"
 	toNixFlagDesc = "Convert Windows to Unix file path(s)"
 	existFlagDesc = "Do not translate paths found only in WSL rootfs"
@@ -84,9 +85,10 @@ func Usage() {
 		filepath.Base(os.Args[0]) + " version " + version,
 		"",
 		"Usage:",
-		"\t" + os.Args[0] + " [-w|-x] [-e] [PATH ...]",
+		"\t" + os.Args[0] + " [-a] [-w|-x] [-e] [PATH ...]",
 		"",
 		"Options:",
+		"\t-a    " + toAbsFlagDesc,
 		"\t-w    " + toWinFlagDesc,
 		"\t-x    " + toNixFlagDesc,
 		"\t-e    " + existFlagDesc,
@@ -143,8 +145,9 @@ func Usage() {
 func main() {
 
 	var (
-		toWinFlag, toNixFlag, existFlag, svNumFlag bool
+		toAbsFlag, toWinFlag, toNixFlag, existFlag, svNumFlag bool
 	)
+	flag.BoolVar(&toAbsFlag, "a", false, toAbsFlagDesc)
 	flag.BoolVar(&toWinFlag, "w", false, toWinFlagDesc)
 	flag.BoolVar(&toNixFlag, "x", false, toNixFlagDesc)
 	flag.BoolVar(&existFlag, "e", false, existFlagDesc)
@@ -168,26 +171,30 @@ func main() {
 	s := bufio.NewScanner(InputReader(flag.Args()...))
 	for s.Scan() {
 
-		var err error
-		text := s.Text()
-		form := ""
+		var (
+			err error
+			rel string
+			abs string
+		)
+
+		txt := s.Text()
 
 		// use command line flag as target format if provided
 		switch {
 		case toWinFlag:
-			form, _, err = Unix.Format(Windows, text, existFlag, 0)
+			rel, abs, _, err = Unix.Format(Windows, txt, existFlag, 0)
 		case toNixFlag:
-			form, _, err = Windows.Format(Unix, text, existFlag, 0)
+			rel, abs, _, err = Windows.Format(Unix, txt, existFlag, 0)
 		default:
 			// otherwise, no command line flag, try to detect the
 			// given format and use the opposite as target format
-			switch Identify(text) {
+			switch Identify(txt) {
 			case Windows:
-				form, _, err = Windows.Format(Unix, text, existFlag, 0)
+				rel, abs, _, err = Windows.Format(Unix, txt, existFlag, 0)
 			case Unix:
-				form, _, err = Unix.Format(Windows, text, existFlag, 0)
+				rel, abs, _, err = Unix.Format(Windows, txt, existFlag, 0)
 			case Any:
-				form = Any.Clean(text)
+				rel, abs = Any.Clean(txt), Any.abspath(txt)
 			}
 		}
 		if nil != err {
@@ -195,7 +202,11 @@ func main() {
 			exitCode = 1
 			continue
 		}
-		fmt.Println(form)
+		out := rel
+		if toAbsFlag {
+			out = abs
+		}
+		fmt.Println(out)
 	}
 
 	if err := s.Err(); nil != err {
@@ -316,13 +327,13 @@ func (f Format) Elements(s string) []string {
 // handle arbitrary directory separators. In particular, it applies the
 // following rules iteratively until no further processing can be done:
 //
-//     1. Replace multiple directory separators with a single one.
-//     2. Eliminate each "." path name element (the current directory).
-//     3. Eliminate each inner-".." path name element (the parent directory)
-//        along with the non-".." element that precedes it.
-//     4. Eliminate ".." elements that begin a rooted path: that is, replace
-//        "/.." by "/" at the beginning of a path, assuming directory separator
-//        is '/'.
+//  1. Replace multiple directory separators with a single one.
+//  2. Eliminate each "." path name element (the current directory).
+//  3. Eliminate each inner-".." path name element (the parent directory)
+//     along with the non-".." element that precedes it.
+//  4. Eliminate ".." elements that begin a rooted path: that is, replace
+//     "/.." by "/" at the beginning of a path, assuming directory separator
+//     is '/'.
 //
 // The volume prefix, if provided as either a drive letter or UNC host+share, is
 // preserved on both absolute and relative file paths.
@@ -414,13 +425,13 @@ func (f Format) Clean(s string) string {
 //
 // The bool return paramter is true if and only if the returned path is
 // a Windows formatted path into the WSL virtual rootfs (i.e., read-only).
-func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error) {
+func (f Format) Format(t Format, s string, x bool, z uint) (rel, abs string, ok bool, err error) {
 
 	s = f.Clean(s)
 	wsl := false
 
 	if z > 1 {
-		return "", false, fmt.Errorf("invalid path: %s", s)
+		return "", "", false, fmt.Errorf("invalid path: %s", s)
 	}
 
 	switch f {
@@ -437,7 +448,7 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 						// replace drive letter with value of environment variable
 						s = dp + p
 					} else {
-						return "", false, fmt.Errorf("environment variable not set: %s", e)
+						return "", "", false, fmt.Errorf("environment variable not set: %s", e)
 					}
 				} else if len(v) >= 5 {
 					v2 := v[2]
@@ -454,16 +465,16 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 								}
 							}
 							if !ok {
-								return "", false, fmt.Errorf("UNC volume %q not found in environment variable: %s=%q", v, UncPathEnvVar, up)
+								return "", "", false, fmt.Errorf("UNC volume %q not found in environment variable: %s=%q", v, UncPathEnvVar, up)
 							}
 						} else {
-							return "", false, fmt.Errorf("environment variable not set: %s", UncPathEnvVar)
+							return "", "", false, fmt.Errorf("environment variable not set: %s", UncPathEnvVar)
 						}
 					}
 				}
 			}
 			s = strings.ReplaceAll(s, string(f.sep()), string(t.sep()))
-			s = t.Clean(s)
+			rel, abs = t.Clean(s), t.abspath(s)
 		}
 
 	case Unix:
@@ -473,7 +484,7 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 					// absolute file path
 					//e, err := filepath.EvalSymlinks(s)
 					//if err != nil {
-					//	return "", false, err
+					//	return "", "", false, err
 					//}
 					s = f.abspath(s)
 					var rk, rv string
@@ -515,22 +526,23 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 								s = fmt.Sprintf("%s%c%s", up, t.sep(), s)
 								wsl = true
 							} else {
-								return "", false, fmt.Errorf("path substring not found in environment: %s", s)
+								return "", "", false, fmt.Errorf("path substring not found in environment: %s", s)
 							}
 						}
 					}
+					abs = s
 				} else {
 					// relative file path
 					//a, err := filepath.Abs(s)
 					//if err != nil {
-					//	return "", false, err
+					//	return "", "", false, err
 					//}
 					// if we cannot resolve the absolute path to a Windows volume, then
 					// the relative path will never make sense in a Windows context.
 					// Instead, construct an absolute path to the WSL rootfs path.
-					p, w, err := f.Format(t, f.abspath(s), x, z+1)
+					p, a, w, err := f.Format(t, f.abspath(s), x, z+1)
 					if err != nil {
-						return "", false, err
+						return "", "", false, err
 					}
 					if w {
 						// The absolute path was unresolved to a Windows volume, and we
@@ -538,19 +550,22 @@ func (f Format) Format(t Format, s string, x bool, z uint) (string, bool, error)
 						// Use the absolute WSL rootfs path instead of a relative path.
 						s, wsl = p, true
 					}
+					abs = a
 					// s is either a physical relative path or an absolute virtual path.
 				}
 			}
 
 			s = strings.ReplaceAll(s, string(f.sep()), string(t.sep()))
-			s = t.Clean(s)
+			rel = t.Clean(s)
+			abs = strings.ReplaceAll(abs, string(f.sep()), string(t.sep()))
+			abs = t.Clean(abs)
 		}
 
 	case Any:
 	default:
 	}
 
-	return s, wsl, nil
+	return rel, abs, wsl, nil
 }
 
 func (f Format) abspath(s string) string {
