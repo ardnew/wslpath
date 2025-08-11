@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const version = "0.2.0"
+const version = "0.2.1"
 
 // Format represents an enumeration of possible file path formats.
 type Format int
